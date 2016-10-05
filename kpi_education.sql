@@ -1,4 +1,9 @@
-Select
+
+                
+
+
+
+Select 
 smr.id as smr_id,
 concat(smr.id, '_', smt.name) as uniq_event,
 smt.id as smr_type, 
@@ -106,18 +111,37 @@ left join
 	from special_program_club_records as spcr
 	left join special_program_clubs as spc ON spcr.club_id = spc.id') AS spp (status  text, id integer, name text, brand_id  integer, salon_id  integer )
 	ON
-	(Case when usr.salon_id is not null then usr.salon_id else slnMNG.id end) = spp.salon_id and spp.brand_id = 7 and 
+	(Case when usr.salon_id is not null then usr.salon_id else slnMNG.id end) = spp.salon_id and spp.brand_id =  
+
+(Case current_database()
+                When 'loreal' then 1
+                When 'matrix' then 5
+                When 'luxe' then 6
+                When 'redken' then 7
+                When 'essie' then 3
+                End)
+	and 
 		(case  when spp.name like '%Expert%' then spp.status
 			    when spp.name like '%МБК%' then   spp.status
 				end)  in ('accepted', 'invited' )
-	-- LP-1:ES-3:MX-5:KR-6:RD-7
 
 left join 
 	 
 dblink('dbname=academie', 
 	'select distinct brand_id as brand_id, master_id as master_id, seminar_id as seminar_id, (Case when price is not null then 1 end) as ykassa
 	from payments') AS pmt (brand_id integer, master_id integer, seminar_id integer, ykassa integer)
- ON  smr.id = pmt.seminar_id and usr.id = pmt.master_id and pmt.brand_id = 7
+ ON  smr.id = pmt.seminar_id and usr.id = pmt.master_id and pmt.brand_id = 
+
+ (Case current_database()
+                When 'loreal' then 1
+                When 'matrix' then 5
+                When 'luxe' then 6
+                When 'redken' then 7
+                When 'essie' then 3
+                End)
+
+
+
  
 
 Where   smr.started_at >= '2015-01-01' and smr.started_at < '2016-09-01'
