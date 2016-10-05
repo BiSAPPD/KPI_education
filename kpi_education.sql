@@ -4,7 +4,12 @@ concat(smr.id, '_', smt.name) as uniq_event,
 smt.id as smr_type, 
 smt.name, 
 smt.kpis_type, 
-smt.duration, 
+
+(case when  (row_number() over (Partition by smr.id))  = '1' then smt.duration Else Null end) as duration,
+(case  (row_number() over (Partition by smr.id))  
+when  '1' then (count(usr.id) over (Partition by smr.id))
+when '0' then 0
+else Null  end) as users_count,
 (case when smt.is_free is true then 'free' else 'paid' end) as is_free,
 
 
@@ -116,5 +121,6 @@ dblink('dbname=academie',
  
 
 Where   smr.started_at >= '2015-01-01' and smr.started_at < '2016-09-01'
+order by smr.id
 --GROUP BY smr.id, smt.name, smt.id, std.coefficient, spp.status, slnplace.name, slnplace.address, std.name
 --group by smr.started_at, smu.user_Id
