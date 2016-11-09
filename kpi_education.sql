@@ -1,8 +1,3 @@
-
-                
-
-
-
 Select 
 smr.id as smr_id,
 concat(smr.id, '_', smt.name) as uniq_event,
@@ -139,10 +134,6 @@ dblink('dbname=academie',
                 When 'redken' then 7
                 When 'essie' then 3
                 End)
-
-
-
- 
 
 Where   smr.started_at >= '2015-01-01' and smr.started_at < '2016-09-01'
 order by smr.id
