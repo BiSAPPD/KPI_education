@@ -100,7 +100,7 @@ left join salons as slnPlace ON smr.salon_id is not null and smr.salon_id = slnP
 left join salons as slnMNG ON usr.salon_id is null and usr.id = slnMNG.salon_manager_id
 left join studios as std ON smr.studio_id is not null and smr.studio_id = std.id
 left join 
-	dblink('dbname=academie', 
+	dblink('dbname=academie user=readonly password=sdfm6234vsj',
 	'select spcr.status as status, spc.id as id, spc.name as name, spc.brand_id as brand_id, spcr.salon_id as salon_id
 
 	from special_program_club_records as spcr
@@ -122,7 +122,7 @@ left join
 
 left join 
 	 
-dblink('dbname=academie', 
+dblink('dbname=academie user=readonly password=sdfm6234vsj', 
 	'select distinct brand_id as brand_id, master_id as master_id, seminar_id as seminar_id, (Case when price is not null then 1 end) as ykassa
 	from payments') AS pmt (brand_id integer, master_id integer, seminar_id integer, ykassa integer)
  ON  smr.id = pmt.seminar_id and usr.id = pmt.master_id and pmt.brand_id = 
