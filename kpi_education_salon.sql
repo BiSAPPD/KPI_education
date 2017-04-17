@@ -1,25 +1,14 @@
 
-Select 
+Select distinct
 smr.id as smr_id,
 concat(smr.id, '_', smt.name) as uniq_event,
 smt.id as smr_type, 
 smt.name, 
 smt.kpis_type, 
 
-(case when  (row_number() over (Partition by smr.id))  = '1' then smt.duration Else Null end) as duration,
-(case  (row_number() over (Partition by smr.id))  
-when  '1' then (count(usr.id) over (Partition by smr.id))
-when '0' then 0
-else Null  end) as users_count,
+smt.duration as duration,
+count(usr.id) as users_count,
 (case when smt.is_free is true then 'free' else 'paid' end) as is_free,
-
-
-(Case when std.coefficient is not null then std.coefficient * smt.base_price * (Case when spp.status is not null then 0.5 else 1 end)
-    else smt.base_price * (Case when spp.status is not null then 0.5 else 1 end)
-     end) as base_price,
-
-pmt.ykassa,
-
 
 extract(year from smr.started_at) as cd_year,
 extract(month from smr.started_at)  as cd_month,
@@ -58,18 +47,6 @@ end) end) end) as type_place,
 (case when smr.partimer_id is not null then (select usr_edu.role from users as usr_edu where smr.partimer_id = usr_edu.id) else
 (case when smr.partner_id is not null then (select usr_edu.role from users as usr_edu where smr.partner_id = usr_edu.id) 
  end) end )end) as edu_role,
-
-usr.id, usr.full_name, usr.role, 
-
-(case when usr.email is not null then 1 else 0 end ) as status_email,
-(case when usr.mobile_number is not null then 1 else 0 end ) as status_mobile,
-(case when usr.last_request_at is not null then 1 else 0 end ) as status_ecad_active_user,
-
---usr.mobile_number, usr.email
-
-(Case when usr.salon_id is not null then 'salon_master' else 
-(Case when slnMNG.id is not null then 'salon_master' else 
-(Case when usr.id is not null then 'hairdresser' else 'not_reg_user' end) end) end) as type_master,
 
 (Case when usr.salon_id is not null then usr.salon_id else slnMNG.id end) as salon_id,
 
@@ -136,15 +113,11 @@ dblink('dbname=academie user=readonly password=sdfm6234vsj',
                 When 'essie' then 3
                 End)
 
-
-
- 
-
 Where   
 (smr.started_at >= '2016-01-01' and smr.started_at < '2016-04-01')
 or
 (smr.started_at >= '2017-01-01' and smr.started_at < '2017-04-01')
 
-order by smr.id
---GROUP BY smr.id, smt.name, smt.id, std.coefficient, spp.status, slnplace.name, slnplace.address, std.name
+
+GROUP BY smt.name, smt.id, usr.id, slnPlace.name,  slnPlace.address, std.name, std.address, slnMNG.id , sln.id, spp.status, smr.id, sln.name
 --group by smr.started_at, smu.user_Id
