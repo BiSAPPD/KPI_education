@@ -1,7 +1,7 @@
 WITH programs as (
 
 select *
-from dblink('dbname=academie user=readonly password=sdfm6234vsj', 
+from dblink('dbname=academie user=readonly password=', 
 	'select spcr.status as status, spc.id as id, spc.name as name, spc.brand_id as brand_id, 
 	(Case spc.brand_id
 			When 1 then ''loreal'' 
@@ -181,7 +181,7 @@ left join club_py_emt  as clp_em ON
 
 left join 
 	 
-dblink('dbname=academie user=readonly password=sdfm6234vsj', 
+dblink('dbname=academie user=readonly password=', 
 	'select distinct brand_id as brand_id, master_id as master_id, seminar_id as seminar_id, (Case when price is not null then 1 end) as ykassa
 	from payments') AS pmt (brand_id integer, master_id integer, seminar_id integer, ykassa integer)
  ON  smr.id = pmt.seminar_id and usr.id = pmt.master_id and pmt.brand_id = 
@@ -195,7 +195,7 @@ dblink('dbname=academie user=readonly password=sdfm6234vsj',
                 End)
 
 Where   
-smr.started_at >= '2016-01-01' and smr.started_at < '2017-05-01'
+smr.started_at >= '2016-01-01' and smr.started_at < '2017-06-01'
 
 
 order by smr.id
