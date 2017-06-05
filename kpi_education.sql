@@ -1,3 +1,60 @@
+WITH programs as (
+
+select *
+from dblink('dbname=academie user=readonly password=sdfm6234vsj', 
+	'select spcr.status as status, spc.id as id, spc.name as name, spc.brand_id as brand_id, 
+	(Case spc.brand_id
+			When 1 then ''loreal'' 
+			When 5 then ''matrix''
+			When 6 then ''luxe''
+			When 7 then ''redken''
+			When 3 then ''essie''
+		        End) as brand,
+	spcr.salon_id as salon_id
+
+	from special_program_club_records as spcr
+	left join special_program_clubs as spc ON spcr.club_id = spc.id') AS spp (status  text, id integer, name_prog text, brand_id  integer, brand text, salon_id  integer )
+
+where spp.brand_id = 
+
+(Case current_database()
+                When 'loreal' then 1
+                When 'matrix' then 5
+                When 'luxe' then 6
+                When 'redken' then 7
+                When 'essie' then 3
+               End)
+
+
+)
+
+, club_py_clb as (
+select *
+from programs 
+where name_prog like '%2016%' and 
+	(Case when name_prog like '%Expert%' then 1 else
+		(case when name_prog like '%МБК%' then 1  else
+			(case when name_prog like '%Селективное Соглашение%' then 1 else 0 end ) end) end) = 1
+)
+, club_ty_clb as (
+select * 
+from programs 
+where name_prog like '%2017%' and 
+	(Case when name_prog like '%Expert%' then 1 else
+		(case when name_prog like '%МБК%' then 1  else
+			(case when name_prog like '%Селективное Соглашение%' then 1 else 0 end ) end) end) = 1
+)
+
+, club_py_emt as (
+select *
+from programs 
+where name_prog like '%2016%' and name_prog like '%Emotion%'
+)
+, club_ty_emt as (
+select *
+from programs 
+where name_prog like '%2017%' and name_prog like '%Emotion%'
+)
 
 Select 
 smr.id as smr_id,
@@ -13,10 +70,6 @@ when '0' then 0
 else Null  end) as users_count,
 (case when smt.is_free is true then 'free' else 'paid' end) as is_free,
 
-
-(Case when std.coefficient is not null then std.coefficient * smt.base_price * (Case when spp.status is not null then 0.5 else 1 end)
-    else smt.base_price * (Case when spp.status is not null then 0.5 else 1 end)
-     end) as base_price,
 
 pmt.ykassa,
 
@@ -77,7 +130,7 @@ usr.id, usr.full_name, usr.role,
 (Case when slnMNG.id is not null then concat(slnMNG.id, '_', slnMNG.name, '. ',slnMNG.address) else '' end) end) as salon,
 
 (Case when usr.salon_id is not null then sln.com_mreg else slnMNG.com_mreg end) as com_mreg,
-(Case when usr.salon_id is not null then sln.com_reg else slnMNG.com_reg end) as com_reg,
+(Case when usr.salon_id is not null then sln.com_mreg else slnMNG.com_reg end) as com_reg,
 (Case when usr.salon_id is not null then sln.com_sect else slnMNG.com_sect end) as com_sect,
 (Case when usr.salon_id is not null then sln.client_type else slnMNG.client_type end) as client_type,
 
@@ -85,9 +138,24 @@ usr.id, usr.full_name, usr.role,
 (Case when sln.id is not null then
 	(Case when sln.is_closed = 't' then 'in_ptnc_base' else 'in_act_base' end) else
 	(Case when slnMNG.id is not null then
-(Case when slnMNG.is_closed = 't' then 'in_ptnc_base' else 'in_act_base' end) end) end) as active_clnt, 
+(Case when slnMNG.is_closed = 't' then 'in_ptnc_base' else 'in_act_base' end) end) end) as active_clnt,
 
-spp.status as Club
+(Case when	
+	(CASE when clp.name_prog like '%Expert%' then clp.status else
+	   (CASE when clp.name_prog like '%МБК%' then clp.status Else 
+		(CASE when clp.name_prog like '%Соглашение%' then clp.status else 'Empty' End)End)End) <> 'Empty' then '2016' Else 'Empty' end)
+ 	|| ' | ' ||
+(Case when 
+ (CASE when clt.name_prog like '%Expert%' then clt.status else
+   (CASE when clt.name_prog like '%МБК%' then clt.status Else 
+	(CASE when clt.name_prog like '%Соглашение%' then clt.status else 'Empty' End)End)End) <> 'Empty' then '2017' Else 'Empty' end)
+	 as club,
+
+(Case when 
+(CASE when clp_em.name_prog like '%Emotion%' then clp_em.status else 'Empty' End) <> 'Empty' then '2016' Else 'Empty' end)
+|| ' | ' ||
+(Case when 
+(CASE when clt_em.name_prog like '%Emotion%' then clt_em.status else 'Empty' End)  <> 'Empty' then '2017' Else 'Empty' end) as emotion
 
 
 --(select distinct usr2.chief from users as USR2 where usr2.full_name=usr.chief limit 1 ) as nPlus1
@@ -96,34 +164,24 @@ from seminars as SMR
 left join seminar_types as smt On smr.seminar_type_id = smt.id 
 left join seminar_users as smu ON smu.seminar_id = smr.id
 left join users as usr ON smu.user_id = usr.id
-left join salons as sln ON usr.salon_id is not Null and usr.salon_id = sln.id
-left join salons as slnPlace ON smr.salon_id is not Null and smr.salon_id = slnPlace.id
+left join salons as sln ON usr.salon_id is not null and usr.salon_id = sln.id
+left join salons as slnPlace ON smr.salon_id is not null and smr.salon_id = slnPlace.id
 left join salons as slnMNG ON usr.salon_id is null and usr.id = slnMNG.salon_manager_id
 left join studios as std ON smr.studio_id is not null and smr.studio_id = std.id
-left join 
-	dblink('dbname=academie user=readonly password=', 
-	'select spcr.status as status, spc.id as id, spc.name as name, spc.brand_id as brand_id, spcr.salon_id as salon_id
+left join club_ty_clb  as clt ON 
+	sln.id = clt.salon_id and clt.brand = current_database()  
+left join club_py_clb  as clp ON 
+	sln.id = clp.salon_id and clp.brand = current_database()
 
-	from special_program_club_records as spcr
-	left join special_program_clubs as spc ON spcr.club_id = spc.id') AS spp (status  text, id integer, name text, brand_id  integer, salon_id  integer )
-	ON
-	(Case when usr.salon_id is not null then usr.salon_id else slnMNG.id end) = spp.salon_id and spp.brand_id =  
+left join club_ty_emt  as clt_em ON 
+	sln.id = clt_em.salon_id and clt_em.brand = current_database()
+left join club_py_emt  as clp_em ON 
+	sln.id = clp_em.salon_id and clp_em.brand = current_database()
 
-(Case current_database()
-                When 'loreal' then 1
-                When 'matrix' then 5
-                When 'luxe' then 6
-                When 'redken' then 7
-                When 'essie' then 3
-                End)
-	and 
-		(case  when spp.name like '%Expert%' then spp.status
-			    when spp.name like '%МБК%' then   spp.status
-				end)  in ('accepted', 'invited' )
 
 left join 
 	 
-dblink('dbname=academie user=readonly password=', 
+dblink('dbname=academie user=readonly password=sdfm6234vsj', 
 	'select distinct brand_id as brand_id, master_id as master_id, seminar_id as seminar_id, (Case when price is not null then 1 end) as ykassa
 	from payments') AS pmt (brand_id integer, master_id integer, seminar_id integer, ykassa integer)
  ON  smr.id = pmt.seminar_id and usr.id = pmt.master_id and pmt.brand_id = 
@@ -136,14 +194,9 @@ dblink('dbname=academie user=readonly password=',
                 When 'essie' then 3
                 End)
 
-
-
- 
-
 Where   
-(smr.started_at >= '2016-01-01' and smr.started_at < '2016-04-01')
-or
-(smr.started_at >= '2017-01-01' and smr.started_at < '2017-04-01')
+smr.started_at >= '2016-01-01' and smr.started_at < '2017-05-01'
+
 
 order by smr.id
 --GROUP BY smr.id, smt.name, smt.id, std.coefficient, spp.status, slnplace.name, slnplace.address, std.name
