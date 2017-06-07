@@ -1,93 +1,104 @@
+WITH 
+programs as (
+	select *
+	from dblink('dbname=academie user=readonly password=', 
+		'select spcr.status as status, spc.id as id, spc.name as name, spc.brand_id as brand_id, 
+		(Case spc.brand_id
+				When 1 then ''loreal'' 
+				When 5 then ''matrix''
+				When 6 then ''luxe''
+				When 7 then ''redken''
+				When 3 then ''essie''
+				End) as brand,
+		spcr.salon_id as salon_id
 
-WITH programs as (
+		from special_program_club_records as spcr
+		left join special_program_clubs as spc ON spcr.club_id = spc.id') AS spp (status  text, id integer, name_prog text, brand_id  integer, brand text, salon_id  integer )
 
-select *
-from dblink('dbname=academie user=readonly password=', 
-	'select spcr.status as status, spc.id as id, spc.name as name, spc.brand_id as brand_id, 
-	(Case spc.brand_id
-			When 1 then ''loreal'' 
-			When 5 then ''matrix''
-			When 6 then ''luxe''
-			When 7 then ''redken''
-			When 3 then ''essie''
-		        End) as brand,
-	spcr.salon_id as salon_id
+	where spp.brand_id = 
 
-	from special_program_club_records as spcr
-	left join special_program_clubs as spc ON spcr.club_id = spc.id') AS spp (status  text, id integer, name_prog text, brand_id  integer, brand text, salon_id  integer )
-
-where spp.brand_id = 
-
-(Case current_database()
-                When 'loreal' then 1
-                When 'matrix' then 5
-                When 'luxe' then 6
-                When 'redken' then 7
-                When 'essie' then 3
-               End)
-
-
+	(Case current_database()
+			When 'loreal' then 1
+			When 'matrix' then 5
+			When 'luxe' then 6
+			When 'redken' then 7
+			When 'essie' then 3
+		       End)
 )
 
 , club_py_clb as (
-select *
-from programs 
-where name_prog like '%2016%' and 
-	(Case when name_prog like '%Expert%' then 1 else
-		(case when name_prog like '%МБК%' then 1  else
-			(case when name_prog like '%Селективное Соглашение%' then 1 else 0 end ) end) end) = 1
+	select *
+	from programs 
+	where name_prog like '%2016%' and 
+		(Case when name_prog like '%Expert%' then 1 else
+			(case when name_prog like '%МБК%' then 1  else
+				(case when name_prog like '%Селективное Соглашение%' then 1 else 0 end ) end) end) = 1
 )
-, club_ty_clb as (
-select * 
-from programs 
-where name_prog like '%2017%' and 
-	(Case when name_prog like '%Expert%' then 1 else
-		(case when name_prog like '%МБК%' then 1  else
-			(case when name_prog like '%Селективное Соглашение%' then 1 else 0 end ) end) end) = 1
+	, club_ty_clb as (
+	select * 
+	from programs 
+	where name_prog like '%2017%' and 
+		(Case when name_prog like '%Expert%' then 1 else
+			(case when name_prog like '%МБК%' then 1  else
+				(case when name_prog like '%Селективное Соглашение%' then 1 else 0 end ) end) end) = 1
 )
 
 , club_py_emt as (
-select *
-from programs 
-where name_prog like '%2016%' and name_prog like '%Emotion%'
+	select *
+	from programs 
+	where name_prog like '%2016%' and name_prog like '%Emotion%'
 )
 , club_ty_emt as (
-select *
-from programs 
-where name_prog like '%2017%' and name_prog like '%Emotion%'
+	select *
+	from programs 
+	where name_prog like '%2017%' and name_prog like '%Emotion%'
 )
 , program_salons as (
-select distinct sln_ppt.id as id, 
-(Case when	
-	(CASE when clp.name_prog like '%Expert%' then clp.status else
-	   (CASE when clp.name_prog like '%МБК%' then clp.status Else 
-		(CASE when clp.name_prog like '%Соглашение%' then clp.status else 'Empty' End)End)End) <> 'Empty' then '2016' Else 'Empty' end)
- 	|| ' | ' ||
-(Case when 
- (CASE when clt.name_prog like '%Expert%' then clt.status else
-   (CASE when clt.name_prog like '%МБК%' then clt.status Else 
-	(CASE when clt.name_prog like '%Соглашение%' then clt.status else 'Empty' End)End)End) <> 'Empty' then '2017' Else 'Empty' end)
-	 as club,
+	select distinct sln_ppt.id as salon_id, 
+	(Case when	
+		(CASE when clp.name_prog like '%Expert%' then clp.status else
+		   (CASE when clp.name_prog like '%МБК%' then clp.status Else 
+			(CASE when clp.name_prog like '%Соглашение%' then clp.status else 'Empty' End)End)End) <> 'Empty' then '2016' Else 'Empty' end)
+		|| ' | ' ||
+	(Case when 
+	 (CASE when clt.name_prog like '%Expert%' then clt.status else
+	   (CASE when clt.name_prog like '%МБК%' then clt.status Else 
+		(CASE when clt.name_prog like '%Соглашение%' then clt.status else 'Empty' End)End)End) <> 'Empty' then '2017' Else 'Empty' end)
+		 as club,
 
-(Case when 
-    (CASE when clp_em.name_prog like '%Emotion%' then clp_em.status else 'Empty' End) <> 'Empty' then '2016' Else 'Empty' end)
-    || ' | ' ||
-    (Case when 
-        (CASE when clt_em.name_prog like '%Emotion%' then clt_em.status else 'Empty' End)  <> 'Empty' then '2017' Else 'Empty' end) as emotion
+	(Case when 
+	    (CASE when clp_em.name_prog like '%Emotion%' then clp_em.status else 'Empty' End) <> 'Empty' then '2016' Else 'Empty' end)
+	    || ' | ' ||
+	    (Case when 
+		(CASE when clt_em.name_prog like '%Emotion%' then clt_em.status else 'Empty' End)  <> 'Empty' then '2017' Else 'Empty' end) as emotion
+		from salons as sln_ppt
 
+	left join club_ty_clb  as clt ON 
+		sln_ppt.id = clt.salon_id and clt.brand = current_database()  
+	left join club_py_clb  as clp ON 
+		sln_ppt.id = clp.salon_id and clp.brand = current_database()
 
-from salons as sln_ppt
-
-left join club_ty_clb  as clt ON 
-	sln_ppt.id = clt.salon_id and clt.brand = current_database()  
-left join club_py_clb  as clp ON 
-	sln_ppt.id = clp.salon_id and clp.brand = current_database()
-
-left join club_ty_emt  as clt_em ON 
-	sln_ppt.id = clt_em.salon_id and clt_em.brand = current_database()
-left join club_py_emt  as clp_em ON 
-	sln_ppt.id = clp_em.salon_id and clp_em.brand = current_database()
+	left join club_ty_emt  as clt_em ON 
+		sln_ppt.id = clt_em.salon_id and clt_em.brand = current_database()
+	left join club_py_emt  as clp_em ON 
+		sln_ppt.id = clp_em.salon_id and clp_em.brand = current_database()
 )
+, payments as (
+	select *
+	from dblink('dbname=academie user=readonly password=',
+	'select distinct brand_id as brand_id, master_id as master_id, seminar_id as seminar_id, (Case when price is not null then 1 end) as ykassa
+	from payments') AS pmt (brand_id integer, master_id integer, seminar_id integer, ykassa integer)
+)
+
+, booking as (
+	select smrr.seminar_id, smrr.representative_id as booking_user_id, usr.lname || ' '  || usr.fname as booking_user_name, smrr.payed, smrr.master_id, usr2.lname || ' '  || usr2.fname as master_name, smrr.created_at as booking_at,
+	usr.role
+	from seminar_records as smrr
+	left join users as usr ON usr.id = smrr.representative_id
+	left join users as usr2 ON usr2.id = smrr.master_id
+)
+
+
 
 
 Select 
@@ -175,7 +186,13 @@ usr.id, usr.full_name, usr.role,
 	(Case when sln.is_closed = 't' then 'in_ptnc_base' else 'in_act_base' end) else
 	(Case when slnMNG.id is not null then
 (Case when slnMNG.is_closed = 't' then 'in_ptnc_base' else 'in_act_base' end) end) end) as active_clnt,
-pgs.club, pgs.emotion
+pgs.club, pgs.emotion,
+bkg.booking_user_name, bkg.role as booking_user_role,
+date_part('day', smr.started_at::timestamp  - bkg.booking_at::timestamp ) as prebooking_day,
+(Case when date_part('day', smr.started_at::timestamp  - bkg.booking_at::timestamp ) = 0 then 'on_seminar' else
+	(Case when date_part('day', smr.started_at::timestamp  - bkg.booking_at::timestamp ) < 0 then 'after_seminar' else
+		(Case when date_part('day', smr.started_at::timestamp  - bkg.booking_at::timestamp ) > 0 then 'pre_booking' 
+		else '' end)end)end) as status_booking
 
 
 
@@ -191,24 +208,10 @@ left join salons as sln ON usr.salon_id is not null and usr.salon_id = sln.id
 left join salons as slnPlace ON smr.salon_id is not null and smr.salon_id = slnPlace.id
 left join salons as slnMNG ON usr.salon_id is null and usr.id = slnMNG.salon_manager_id
 left join studios as std ON smr.studio_id is not null and smr.studio_id = std.id
-left join program_salons as pgs ON sln.id = pgs.id
-
-left join 
-	 
-
-dblink('dbname=academie user=readonly password=', 
-
-	'select distinct brand_id as brand_id, master_id as master_id, seminar_id as seminar_id, (Case when price is not null then 1 end) as ykassa
-	from payments') AS pmt (brand_id integer, master_id integer, seminar_id integer, ykassa integer)
- ON  smr.id = pmt.seminar_id and usr.id = pmt.master_id and pmt.brand_id = 
-
- (Case current_database()
-                When 'loreal' then 1
-                When 'matrix' then 5
-                When 'luxe' then 6
-                When 'redken' then 7
-                When 'essie' then 3
-                End)
+left join program_salons as pgs ON sln.id = pgs.salon_id
+left join program_salons as spp ON (Case when usr.salon_id is not null then usr.salon_id else slnMNG.id end) = spp.salon_id 
+left join payments as pmt ON smr.id = pmt.seminar_id and usr.id = pmt.master_id
+left join booking as bkg ON smr.id = bkg.seminar_id and bkg.master_id = smu.user_id
 
 Where   
 smr.started_at >= '2016-01-01' and smr.started_at < '2017-06-01'
