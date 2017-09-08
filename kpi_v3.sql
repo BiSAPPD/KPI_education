@@ -145,17 +145,16 @@ from seminar_events as sme
 	left join regions as rgn_edu on sme.region_id =rgn_edu.id
 	left join internal_hrr as inte on sme.educator_id = inte.user_id
 	left join payments_usr as pmt_prt on prt.id = pmt_prt.item_id
-where 
-	to_char(sme.started_at::timestamp at time zone 'UTC','YYYY') in ('2017') and  
+where
+	sme.started_at::timestamp at time zone 'UTC' >= '2016-01-01' and sme.started_at::timestamp at time zone 'UTC' < '2017-09-01' 
+	--to_char(sme.started_at::timestamp at time zone 'UTC','YYYY') in ('2017', '2016') and  
 	--to_char(sme.started_at::timestamp at time zone 'UTC','MM') in ('07') and 
-	brn."name" is not null and 
-	brn.pretty_name = 'Matrix' and 
+	and brn."name" is not null and 
+	--brn.pretty_name = 'Matrix' and 
   	--inte.n1_full_name is not null and 
 	--inte.n3_full_name is not null and 
 	sme.studio_id is null
 order by sme.started_at, sme.id, prt.id
-limit 100
----end
 
 
 with a as (select admin_coach_events.id as id, users.id as coach_id, 
