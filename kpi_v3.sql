@@ -68,7 +68,7 @@ left join payments as pmt on ord.id = pmt.order_id
 where ord.item_type = 'Participation')
 ---
 select
-	brn.pretty_name,
+	(case when brn.code is not null then brn.code else smrkt."name" end) as brand,
 	(case when  (row_number() over (Partition by sme.id order by prt.id))  = '1' then sme.id Else Null end) as smr_id, 
 	sme.seminar_event_type_id as smr_type_id, 
 	smr.name as smr_name,
@@ -76,12 +76,6 @@ select
 	smrkt."name" as smr_kpi_type, 
 	(case when  (row_number() over (Partition by sme.id order by prt.id))  = '1' then smr.duration Else Null end) as smr_duration,
 	inte.n1_full_name, inte.n2_full_name, inte.n3_full_name,
-	(case when  (row_number() over (Partition by sme.id))  = '1' then
-		(case when smr.name like '%CRAFT%' or  smr.name like '%твор%'  or smr.name like '%МП%' then '1' else 0 end)
-	 		end) as is_craft,
-	 (case when  (row_number() over (Partition by sme.id))  = '1' then
-		(case when smrkt."name" like 'Brand Day' then '1' else 0 end)
-	 		end) as is_Day_MX,
 	 (case when (row_number() over (Partition by sme.id))  = '1' then 
 	    (case when smr.cost = 0 then 'free' else 'paid' end) 
 			end)  as smr_type,
@@ -105,13 +99,14 @@ select
 		when 5 then 'manager'
 		when 4 then 'reg_technolog'
 		end) as  role_name,
-	(case when  (row_number() over (Partition by sme.id))  = '1' then extract(day from sme.started_at::timestamp at time zone 'UTC') end) as Day, 
-	(case when  (row_number() over (Partition by sme.id))  = '1' then extract(month from sme.started_at::timestamp at time zone 'UTC') end)as Month, 
-	(case when  (row_number() over (Partition by sme.id))  = '1' then extract(year from sme.started_at::timestamp at time zone 'UTC') end) as Year,
-	(case when  (row_number() over (Partition by sme.id))  = '1' then to_char(sme.created_at::timestamp at time zone 'UTC','dd.mm.YYYY') end) as smr_createdDate,
-	(case when  (row_number() over (Partition by sme.id))  = '1' then to_char(sme.started_at::timestamp at time zone 'UTC','dd.mm.YYYY') end) as smr_startDate ,
-	(case when  (row_number() over (Partition by sme.id))  = '1' then to_char(sme.performed_at::timestamp at time zone 'UTC','dd.mm.YYYY') end) as smr_closedDate ,
-	(case when  (row_number() over (Partition by sme.id))  = '1' then (case  when  sme.performed_at is not Null then '1' else 0 end) end) as seminar_closed,
+	edu.technolog_salary_category as technolog_salary_category,
+	extract(day from sme.started_at::timestamp at time zone 'UTC') as Day, 
+	extract(month from sme.started_at::timestamp at time zone 'UTC') as Month, 
+	extract(year from sme.started_at::timestamp at time zone 'UTC') as Year,
+	to_char(sme.created_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_createdDate,
+	to_char(sme.started_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_startDate ,
+	to_char(sme.performed_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_closedDate ,
+	(case  when  sme.performed_at is not Null then '1' else 0 end) as seminar_closed,
 	count(prtnm.id) over (partition by sme.id order by prt.id) as user_num, 
 	(case when  (row_number() over (Partition by Concat(sme.id, '|' ,prt.user_id)))  = '1' then prt.user_id end) as user_id, 
 	prtnm.last_name || ' ' || prtnm.first_name as master_name,
@@ -146,14 +141,14 @@ from seminar_events as sme
 	left join internal_hrr as inte on sme.educator_id = inte.user_id
 	left join payments_usr as pmt_prt on prt.id = pmt_prt.item_id
 where
-	sme.started_at::timestamp at time zone 'UTC' >= '2016-01-01' and sme.started_at::timestamp at time zone 'UTC' < '2017-09-01' 
+	sme.started_at::timestamp at time zone 'UTC' >= '2016-01-01' and sme.started_at::timestamp at time zone 'UTC' < '2017-09-01'
 	--to_char(sme.started_at::timestamp at time zone 'UTC','YYYY') in ('2017', '2016') and  
 	--to_char(sme.started_at::timestamp at time zone 'UTC','MM') in ('07') and 
-	and brn."name" is not null and 
+	--and brn."name" is not null and 
 	--brn.pretty_name = 'Matrix' and 
-  	--inte.n1_full_name is not null and 
+  	--inte.n1_full_name is not null and
 	--inte.n3_full_name is not null and 
-	sme.studio_id is null
+	-- sme.studio_id is null
 order by sme.started_at, sme.id, prt.id
 
 
