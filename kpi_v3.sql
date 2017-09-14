@@ -69,29 +69,35 @@ where ord.item_type = 'Participation')
 ---
 select
 	(case when brn.code is not null then brn.code else smrkt."name" end) as brand,
-	(case when  (row_number() over (Partition by sme.id order by prt.id))  = '1' then sme.id Else Null end) as smr_id, 
+	---seminar info
+	extract(day from sme.started_at::timestamp at time zone 'UTC') as Day, 
+	extract(month from sme.started_at::timestamp at time zone 'UTC') as Month, 
+	extract(year from sme.started_at::timestamp at time zone 'UTC') as Year,
+	to_char(sme.created_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_created_date,
+	to_char(sme.started_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_start_date ,
+	to_char(sme.performed_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_closed_date ,
+	(case  when  sme.performed_at is not Null then 'closed' else 'open' end) as seminar_closed,
+	(case when  (row_number() over (Partition by sme.id order by prt.id))  = '1' then sme.id Else Null end) as uniq_smr_id,
+	sme.id as smr_id,
+	concat(sme.loreal_former_id, sme.matrix_former_id, sme.kerastase_former_id, sme.redken_former_id) as old_smr_id,
 	sme.seminar_event_type_id as smr_type_id, 
 	smr.name as smr_name,
 	sme.business_trip as smr_status_trip,
 	smrkt."name" as smr_kpi_type, 
 	(case when  (row_number() over (Partition by sme.id order by prt.id))  = '1' then smr.duration Else Null end) as smr_duration,
-	inte.n1_full_name, inte.n2_full_name, inte.n3_full_name,
-	 (case when (row_number() over (Partition by sme.id))  = '1' then 
-	    (case when smr.cost = 0 then 'free' else 'paid' end) 
-			end)  as smr_type,
+	(case when smr.cost = 0 then 'free' else 'paid' end) as smr_cost_type,
 	(case when (row_number() over (Partition by sme.id))  = '1' then
 		Sum(case when smr.cost <> 0 then  (case when dsc.percent_value is not null then (smr.cost *  (dsc.percent_value::int / 10)) /10 else smr.cost * 1 end) end)
-			over (Partition by sme.id) else null end)
-	as smr_paid,
-	(case when row_number() over (partition by sme.id) = 1 then 
-	    count(prtnm.id) over (partition by sme.id) 
-	end) as users_count,
-	(case when row_number() over (partition by sme.id) = 1 then
-		count(usr_sln.salon_id) over (partition by smr.id) 
-	end) as clients_count,
+			over (Partition by sme.id) else null end) as smr_paid,
+	(case when row_number() over (partition by sme.id) = 1 then count(prtnm.id) over (partition by sme.id)	end) as users_count,
+	(case when count(prtnm.id) over (partition by sme.id) > 0 then 'attend' else 'no_users' end) as status_seminar_users,
+	(case when row_number() over (partition by sme.id) = 1 then count(usr_sln.salon_id) over (partition by sme.id) end) as clients_count,
+	---place info
 	(case when sme.studio_id is not null then 'studio' else 'in_salon' end) as type_place,
+	(case when sme.studio_id is not null then  sme.studio_id else sme.salon_id end) as id_place,
 	(case when sme.studio_id is not null then  trc."name" || ' ' || trc.address
 		else 'in_salon: ' || sln.salon_name  end) as name_place,
+	---educater info
 	sme.educator_id as educater_id,
 	edu.first_name || ' ' || edu.last_name as educator_name,
 	(case inte.region_level
@@ -100,13 +106,8 @@ select
 		when 4 then 'reg_technolog'
 		end) as  role_name,
 	edu.technolog_salary_category as technolog_salary_category,
-	extract(day from sme.started_at::timestamp at time zone 'UTC') as Day, 
-	extract(month from sme.started_at::timestamp at time zone 'UTC') as Month, 
-	extract(year from sme.started_at::timestamp at time zone 'UTC') as Year,
-	to_char(sme.created_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_createdDate,
-	to_char(sme.started_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_startDate ,
-	to_char(sme.performed_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_closedDate ,
-	(case  when  sme.performed_at is not Null then '1' else 0 end) as seminar_closed,
+	inte.n1_full_name, inte.n2_full_name, inte.n3_full_name,
+	---participations info
 	count(prtnm.id) over (partition by sme.id order by prt.id) as user_num, 
 	(case when  (row_number() over (Partition by Concat(sme.id, '|' ,prt.user_id)))  = '1' then prt.user_id end) as user_id, 
 	prtnm.last_name || ' ' || prtnm.first_name as master_name,
@@ -117,11 +118,15 @@ select
 	(case when smr.cost <> 0 then  (case when dsc.percent_value is not null then (smr.cost *  (dsc.percent_value::int / 10)) /10 else smr.cost * 1 end) end) as user_must_pay,
 	pmt_prt.amount as payment,
 	dsc.percent_value as discount,
+	---participations salons info
 	usr_sln.salon_id as salon_id,
 	sme.id || '|' || usr_sln.salon_id as educated_salon,
 	sln_user.salon_name as salon,
-	sln.com_mreg_name, sln.com_reg_name, sln.com_ter_name,
-	sln.com_ter_name, sln.com_reg_name, sln.com_mreg_name, sln.salon_type,
+	sln.com_mreg_name as place_mreg, sln.com_reg_name as place_reg, sln.com_ter_name as place_ter,
+	sln_user.com_mreg_name as com_mreg, sln_user.com_reg_name as com_reg, sln_user.com_ter_name as com_ter,
+	(case when sln_user.com_mreg_name is null and usr_sln.salon_id is not null then 'other_brand' else 
+		(case when sln_user.com_mreg_name is null and usr_sln.salon_id is null then 'not_salon' else 'brand_salon'  end ) end) as salon_brand_status,
+	sln.salon_type,
 	sln.edu_reg_name, sln.edu_mreg_name,
 	'' as booking_user_name, '' as role, '' as prebooking_day, '' as status_booking
 from seminar_events as sme
@@ -145,10 +150,11 @@ where
 	--to_char(sme.started_at::timestamp at time zone 'UTC','YYYY') in ('2017', '2016') and  
 	--to_char(sme.started_at::timestamp at time zone 'UTC','MM') in ('07') and 
 	--and brn."name" is not null and 
-	--brn.pretty_name = 'Matrix' and 
+	and brn.code = 'LP' 
   	--inte.n1_full_name is not null and
 	--inte.n3_full_name is not null and 
 	-- sme.studio_id is null
+	and sln_user.com_mreg_name is null
 order by sme.started_at, sme.id, prt.id
 
 
@@ -182,3 +188,6 @@ select *
 from seminars as smr 
 	left join seminar_kpis_types as smrkt on smr.seminar_kpis_type_id = smrkt.id
 where smrkt.id is  null
+
+select *
+from seminar_events
