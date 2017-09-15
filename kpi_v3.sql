@@ -53,19 +53,30 @@ from  salons as sln
 	left join regions_salons as rgs on sln.id = rgs.salon_id
 	left join region_srep as rgu on rgs.region_id = rgu.com_ter_id
 order by sln.id),
----
+--- подсчет участников семинара
 participations_count as(
 select 
 	prt.seminar_event_id, count(distinct prt.user_id) as user_count
 from participations as prt
 group by prt.seminar_event_id),
----
+---салоны участников
+participations_nobrand_salons as (
+	select distinct  usr_sln.salon_id,  sln_user.com_mreg_name 
+	from participations as prt
+		left join seminar_events as sme on sme.id = prt.seminar_event_id
+		left join seminars as smr on sme.seminar_id = smr.id
+		left join users_salons as usr_sln on prt.user_id = usr_sln.user_id
+		left join brands as brn on smr.brand_id = brn.id
+		left join salons_rgn as sln_user on usr_sln.salon_id = sln_user.id and brn."name" <> sln_user.brand
+	where sln_user.com_mreg_name is not null and sln_user.com_mreg_name not like 'МегаТест'),
+--
 payments_usr as (
 select 
 	ord.item_id, ord.base_cost, ord.cost, pmt.amount
 from orders as ord
 left join payments as pmt on ord.id = pmt.order_id
 where ord.item_type = 'Participation')
+---
 ---
 select
 	(case when brn.code is not null then brn.code else smrkt."name" end) as brand,
@@ -97,6 +108,9 @@ select
 	(case when sme.studio_id is not null then  sme.studio_id else sme.salon_id end) as id_place,
 	(case when sme.studio_id is not null then  trc."name" || ' ' || trc.address
 		else 'in_salon: ' || sln.salon_name  end) as name_place,
+	sln.com_mreg_name as place_mreg, 
+	sln.com_reg_name as place_reg, 
+	sln.com_ter_name as place_ter,
 	---educater info
 	sme.educator_id as educater_id,
 	edu.first_name || ' ' || edu.last_name as educator_name,
@@ -122,12 +136,14 @@ select
 	usr_sln.salon_id as salon_id,
 	sme.id || '|' || usr_sln.salon_id as educated_salon,
 	sln_user.salon_name as salon,
-	sln.com_mreg_name as place_mreg, sln.com_reg_name as place_reg, sln.com_ter_name as place_ter,
-	sln_user.com_mreg_name as com_mreg, sln_user.com_reg_name as com_reg, sln_user.com_ter_name as com_ter,
+	(case when sln_user.com_mreg_name is not null then sln_user.com_mreg_name else pns.com_mreg_name end) as com_mreg, 
+	sln_user.com_reg_name as com_reg, 
+	sln_user.com_ter_name as com_ter,
 	(case when sln_user.com_mreg_name is null and usr_sln.salon_id is not null then 'other_brand' else 
 		(case when sln_user.com_mreg_name is null and usr_sln.salon_id is null then 'not_salon' else 'brand_salon'  end ) end) as salon_brand_status,
 	sln.salon_type,
-	sln.edu_reg_name, sln.edu_mreg_name,
+	sln.edu_mreg_name,
+	sln.edu_reg_name, 
 	'' as booking_user_name, '' as role, '' as prebooking_day, '' as status_booking
 from seminar_events as sme
 	left join seminars as smr on sme.seminar_id = smr.id
@@ -141,6 +157,7 @@ from seminar_events as sme
 	left join users as prtnm on prt.user_id = prtnm.id
 	left join users_salons as usr_sln on prtnm.id = usr_sln.user_id
 	left join salons_rgn as sln_user on usr_sln.salon_id = sln_user.id and brn."name" = sln_user.brand
+	left join participations_nobrand_salons as pns on usr_sln.salon_id = pns.salon_id 
 	left join discounts dsc on prt.discount_id = dsc.id 
 	left join regions as rgn_edu on sme.region_id =rgn_edu.id
 	left join internal_hrr as inte on sme.educator_id = inte.user_id
@@ -150,11 +167,12 @@ where
 	--to_char(sme.started_at::timestamp at time zone 'UTC','YYYY') in ('2017', '2016') and  
 	--to_char(sme.started_at::timestamp at time zone 'UTC','MM') in ('07') and 
 	--and brn."name" is not null and 
-	and brn.code = 'LP' 
+	--and brn.code = 'LP' 
   	--inte.n1_full_name is not null and
 	--inte.n3_full_name is not null and 
 	-- sme.studio_id is null
-	and sln_user.com_mreg_name is null
+	--and sln_user.com_mreg_name is null 
+	--and usr_sln.salon_id in (3023)
 order by sme.started_at, sme.id, prt.id
 
 
