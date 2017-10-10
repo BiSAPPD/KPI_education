@@ -87,7 +87,7 @@ select
 	to_char(sme.created_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_created_date,
 	to_char(sme.started_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_start_date ,
 	to_char(sme.performed_at::timestamp at time zone 'UTC','dd.mm.YYYY') as smr_closed_date ,
-	(case  when  sme.performed_at is not Null then 'closed' else 'open' end) as seminar_closed,
+	(case  when  sme.performed_at is not Null then 'Closed' else 'NotClosed' end) as seminar_closed,
 	(case when  (row_number() over (Partition by sme.id order by prt.id))  = '1' then sme.id Else Null end) as uniq_smr_id,
 	sme.id as smr_id,
 	concat(sme.loreal_former_id, sme.matrix_former_id, sme.kerastase_former_id, sme.redken_former_id) as old_smr_id,
@@ -117,7 +117,8 @@ select
 	(case inte.region_level
 		when 6 then 'technolog' 
 		when 5 then 'manager'
-		when 4 then 'reg_technolog'
+		when 4 then 'regional_technolog'
+		when 3 then 'education_director'
 		end) as  role_name,
 	edu.technolog_salary_category as technolog_salary_category,
 	inte.n1_full_name, inte.n2_full_name, inte.n3_full_name,
@@ -142,7 +143,7 @@ select
 	(case when sln_user.com_mreg_name is null and usr_sln.salon_id is not null then 'other_brand' else 
 		(case when sln_user.com_mreg_name is null and usr_sln.salon_id is null then 'not_salon' else 'brand_salon'  end ) end) as salon_brand_status,
 	sln.salon_type,
-	sln.edu_mreg_name,
+	(case when sln.edu_mreg_name is not null then sln.rgn_trc else rgn_trc.name end) as edu_mreg_name,
 	sln.edu_reg_name, 
 	'' as booking_user_name, '' as role, '' as prebooking_day, '' as status_booking
 from seminar_events as sme
@@ -159,7 +160,7 @@ from seminar_events as sme
 	left join salons_rgn as sln_user on usr_sln.salon_id = sln_user.id and brn."name" = sln_user.brand
 	left join participations_nobrand_salons as pns on usr_sln.salon_id = pns.salon_id 
 	left join discounts dsc on prt.discount_id = dsc.id 
-	left join regions as rgn_edu on sme.region_id =rgn_edu.id
+	left join regions as rgn_trc on trc.region_id =rgn_trc.id
 	left join internal_hrr as inte on sme.educator_id = inte.user_id
 	left join payments_usr as pmt_prt on prt.id = pmt_prt.item_id
 where
