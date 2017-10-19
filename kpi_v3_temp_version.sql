@@ -42,7 +42,14 @@ where rgn.region_level = 6 and rgn.structure_type = 1),
 ---salon_regions - связка салона с регионом коммерции и обучения
 salons_rgn as (
 select 
-	sln.id, rgu.brand, sln."name" ||'. '|| sln.address || '. ' || sln.city as salon_name,   sln.city,  slt."name" as salon_type, 
+	(case brn.code
+		when 'LP' then (case when sln.loreal_former_id is not null then sln.loreal_former_id else sln.id end)
+		when 'MX' then (case when sln.matrix_former_id is not null then sln.matrix_former_id else sln.id end)
+		when 'KR' then (case when sln.kerastase_former_id is not null then sln.kerastase_former_id else sln.id end)
+		when 'RD' then (case when sln.redken_former_id is not null then sln.redken_former_id else sln.id end)
+		else  sln.id end) as id_v2,
+		sln.id,
+	rgu.brand, sln."name" ||'. '|| sln.address || '. ' || sln.city as salon_name,   sln.city,  slt."name" as salon_type, 
 	rgu.com_ter_id as com_ter_id, rgu.com_ter_name as com_ter_name, 
 	rgu.com_reg_id as com_reg_id, rgu.com_reg_name as com_reg_name, 
 	rgu.com_mreg_id as com_mreg_id, rgu.com_mreg_name as com_mreg_name, 
@@ -52,6 +59,7 @@ from  salons as sln
 	left join salon_types as slt on sln.salon_type_id = slt.id
 	left join regions_salons as rgs on sln.id = rgs.salon_id
 	left join region_srep as rgu on rgs.region_id = rgu.com_ter_id
+	left join brands as brn on rgu.brand = brn.name
 order by sln.id),
 --- подсчет участников семинара
 participations_count as(
@@ -119,12 +127,19 @@ select
 		when 5 then 'manager'
 		when 4 then 'regional_technolog'
 		when 3 then 'education_director'
-		end) as  role_name,
+		else 'other' end) as  role_name,
 	edu.technolog_salary_category as technolog_salary_category,
 	inte.n1_full_name, inte.n2_full_name, inte.n3_full_name,
 	---participations info
-	count(prtnm.id) over (partition by sme.id order by prt.id) as user_num, 
-	(case when  (row_number() over (Partition by Concat(sme.id, '|' ,prt.user_id)))  = '1' then prt.user_id end) as user_id, 
+	count(prtnm.id) over (partition by sme.id order by prt.id) as user_num,
+	(case when  (row_number() over (Partition by Concat(sme.id, '|' ,prt.user_id)))  = '1' then 		
+			(case brn.code
+				when 'LP' then (case when prtnm.loreal_former_id is not null then prtnm.loreal_former_id else prt.user_id end)
+				when 'MX' then (case when prtnm.matrix_former_id is not null then prtnm.matrix_former_id else prt.user_id end)
+				when 'KR' then (case when prtnm.kerastase_former_id is not null then prtnm.kerastase_former_id else prt.user_id end)
+				when 'RD' then (case when prtnm.redken_former_id is not null then prtnm.redken_former_id else prt.user_id end)
+				else  prt.user_id end)
+			end ) as user_id, 
 	prtnm.last_name || ' ' || prtnm.first_name as master_name,
 	(case when prtnm.email is not null then 1 else 0 end ) as status_email,
 	(case when prtnm.mobile_number is not null then 1 else 0 end ) as status_mobile,
@@ -134,18 +149,28 @@ select
 	pmt_prt.amount as payment,
 	dsc.percent_value as discount,
 	---participations salons info
-	usr_sln.salon_id as salon_id,
-	sme.id || '|' || usr_sln.salon_id as educated_salon,
+	sln_user.id_v2 as salon_id,
+	sme.id || '|' || sln_user.id_v2 as educated_salon,
 	sln_user.salon_name as salon,
-	(case when sln_user.com_mreg_name is not null then sln_user.com_mreg_name else pns.com_mreg_name end) as com_mreg, 
+	(case when sln_user.com_mreg_name is not null then sln_user.com_mreg_name else 
+		(case when pns.com_mreg_name is not null then pns.com_mreg_name else 
+			(case when rgn_trc.name is not null then rgn_trc.name else sln.edu_mreg_name 
+				end) 
+					end) 
+						end)as com_mreg, 
 	sln_user.com_reg_name as com_reg, 
 	sln_user.com_ter_name as com_ter,
 	(case when sln_user.com_mreg_name is null and usr_sln.salon_id is not null then 'other_brand' else 
-		(case when sln_user.com_mreg_name is null and usr_sln.salon_id is null then 'not_salon' else 'brand_salon'  end ) end) as salon_brand_status,
-	sln.salon_type,
-	(case when sln.edu_mreg_name is not null then sln.edu_mreg_name else rgn_trc.name end) as edu_mreg_name,
+		(case when sln_user.com_mreg_name is null and usr_sln.salon_id is null then 'not_salon' else 'brand_salon' end ) end) as salon_brand_status,
+	sln.salon_type,	
+	(case when sln.edu_mreg_name is not null then sln.edu_mreg_name else 
+		(case when rgn_trc.name is not null then rgn_trc.name else
+			(case when sln_user.com_mreg_name is not null then sln_user.com_mreg_name else pns.com_mreg_name 
+				end)  
+					end) 
+						end) as edu_mreg_name,
 	sln.edu_reg_name, 
-	'' as booking_user_name, '' as role, '' as prebooking_day, '' as status_booking
+	'' as booking_user_name, '' as role, '' as prebooking_day, '' as status_booking, *
 from seminar_events as sme
 	left join seminars as smr on sme.seminar_id = smr.id
 	left join seminar_kpis_types as smrkt on smr.seminar_kpis_type_id = smrkt.id
@@ -164,7 +189,7 @@ from seminar_events as sme
 	left join internal_hrr as inte on sme.educator_id = inte.user_id
 	left join payments_usr as pmt_prt on prt.id = pmt_prt.item_id
 where
-	sme.started_at::timestamp at time zone 'UTC' >= '2016-01-01' and sme.started_at::timestamp at time zone 'UTC' < '2017-09-01'
+	 sme.id = 293485
 	--to_char(sme.started_at::timestamp at time zone 'UTC','YYYY') in ('2017', '2016') and  
 	--to_char(sme.started_at::timestamp at time zone 'UTC','MM') in ('07') and 
 	--and brn."name" is not null and 
@@ -177,36 +202,3 @@ where
 order by sme.started_at, sme.id, prt.id
 
 
-with a as (select admin_coach_events.id as id, users.id as coach_id, 
-admin_coach_seminars."name" as sem_name, 
-admin_coach_events.started_date,
-users.first_name || ' ' || users.last_name as coach_last_name, 
-admin_coach_events.educator_id
-from admin_coach_events
-left join admin_coach_seminars
-on admin_coach_events.admin_coach_seminar_id = admin_coach_seminars.id
-left join users
-on admin_coach_events.user_id = users.id)
-select a.*, 
-users.first_name || ' ' || users.last_name as stolbew, users.last_name as educator_last_name
-from a
-left join users
-on a.educator_id = users.id
-
-
-select *
-from users as usr
-left join users_salons as usrs on usr.id = usrs.user_id
-left join user_posts as usp on usr.id = usp.user_id
-left join posts as pst on usp.post_id = pst.id
-where pst.role_id = 4 and usp.salon_id is not null
-order by usr.id
-limit 100
-
-select *
-from seminars as smr 
-	left join seminar_kpis_types as smrkt on smr.seminar_kpis_type_id = smrkt.id
-where smrkt.id is  null
-
-select *
-from seminar_events
