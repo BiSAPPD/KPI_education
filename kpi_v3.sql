@@ -168,7 +168,7 @@ where
 	--to_char(sme.started_at::timestamp at time zone 'UTC','MM') in ('07') and 
 	--and brn."name" is not null and 
 	--and brn.code = 'LP' 
-  	--inte.n1_full_name is not null and
+  	--inte.n1_full_name is not 	null and
 	--inte.n3_full_name is not null and 
 	-- sme.studio_id is null
 	--and sln_user.com_mreg_name is null 
