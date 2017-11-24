@@ -11,37 +11,18 @@ from regions as rgn
 ---internal_hrr выводит структру с вышестоящими регионами на три уровня выше
 internal_hrr as (
 select 
-	distinct inte.brand_id, inte.region_id,  inte.region_level, inte.structure_type, 
+	distinct inte.brand_id, inte.region_level, inte.structure_type, 
 	inte.user_id, inte.full_name,  inte.email, inte.mobile_number, inte.city, 
-	(CASE WHEN inte.region_level = 6 then l1.user_id ELSE NULL END) as "n1_user_id", 
-	(CASE WHEN inte.region_level = 6 THEN l1.full_name ELSE NULL END) as "n1_full_name",
-	(CASE inte.region_level 
-		WHEN 5 THEN l1.user_id
-		WHEN 6 THEN l2.user_id END) as "n2_user_id", 
-	(CASE inte.region_level 
-		WHEN 5 THEN l1.full_name
-		WHEN 6 THEN l2.full_name END) as "n2_full_name",
-	(CASE inte.region_level 
-		WHEN 4 THEN l1.user_id
-		WHEN 5 THEN l2.user_id
-		WHEN 6 THEN l3.user_id END) as "n3_user_id",
-	(CASE inte.region_level
-		WHEN 4 THEN l1.full_name
-		WHEN 5 THEN l2.full_name
-		WHEN 6 THEN l3.full_name END) as "n3_full_name",
-	(CASE inte.structure_type 
-		WHEN 1 THEN 'COM'
-		WHEN 2 THEN 'EDU' end) AS team,
-	brn.code
+	l5.user_id as "n1_user_id", l5.full_name as "n1_full_name", 
+	l4.user_id as "n2_user_id", l4.full_name as "n2_full_name", 
+	l3.full_name as "n3_full_name"
 from internal as inte
-	left join region_hierarchies as rgh1 on rgh1.descendant_id = inte.region_id and rgh1.generations = 1
-	left join internal as l1 on  rgh1.ancestor_id = l1.region_id
-	left join region_hierarchies as rgh2 on rgh2.descendant_id = inte.region_id and rgh2.generations = 2
-	left join internal as l2 on  rgh2.ancestor_id = l2.region_id
+	left join region_hierarchies as rgh5 on rgh5.descendant_id = inte.region_id and rgh5.generations = 1
+	left join internal as l5 on  rgh5.ancestor_id = l5.region_id
+	left join region_hierarchies as rgh4 on rgh4.descendant_id = inte.region_id and rgh4.generations = 2
+	left join internal as l4 on  rgh4.ancestor_id = l4.region_id
 	left join region_hierarchies as rgh3 on rgh3.descendant_id = inte.region_id and rgh3.generations = 3
-	left join internal as l3 on  rgh3.ancestor_id = l3.region_id
-	LEFT JOIN brands AS brn ON inte.brand_id = brn.id ),
----
+	left join internal as l3 on  rgh3.ancestor_id = l3.region_id),
 ---выводит регионы для связки салона и коммерции на уровне представителя. 
 region_srep as (
 select 
@@ -169,9 +150,7 @@ select
 	sme.id || '|' || sln_user.salon_id as educated_salon,
 	sln_user.salon_name as salon,
 	(case when sln_user.com_mreg_name is not null then sln_user.com_mreg_name else 
-		(case when pns.com_mreg_name is not null then pns.com_mreg_name else 
-			(case when rgn_trc.name is not null then rgn_trc.name else sln.edu_mreg_name 
-				end) 
+		(case when pns.com_mreg_name is not null then pns.com_mreg_name  
 					end) 
 						end)as com_mreg, 
 	sln_user.com_reg_name as com_reg, 
@@ -180,9 +159,7 @@ select
 		(case when sln_user.com_mreg_name is null and usr_sln.salon_id is null then 'not_salon' else 'brand_salon' end ) end) as salon_brand_status,
 	sln.salon_type,	
 	(case when sln.edu_mreg_name is not null then sln.edu_mreg_name else 
-		(case when rgn_trc.name is not null then rgn_trc.name else
-			(case when sln_user.com_mreg_name is not null then sln_user.com_mreg_name else pns.com_mreg_name 
-				end)  
+		(case when rgn_trc.name is not null then rgn_trc.name  
 					end) 
 						end) as edu_mreg_name,
 	sln.edu_reg_name, 
