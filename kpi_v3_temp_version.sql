@@ -57,6 +57,23 @@ from regions as rgn
 	left join regions as rgn2_edu on rgn1_edu.parent_id = rgn2_edu.id
 	left join brands as brd on rgn.brand_id = brd.id
 where rgn.region_level = 6 and rgn.structure_type = 1),
+---выводит регионы обучения для учебных центров
+training_centers_regions as (
+select
+	trc.id, 
+	trc.name, 
+	trc.address, 
+	trc.costs_coefficient,
+	trc.center_type,
+	brn.code, 
+	rgn.id as region_id, 
+	rgn."name" as edu_reg,
+	rgn1."name" as edu_mreg
+from training_centers as trc
+	left join regions_training_centers as rgn_t on trc.id = rgn_t.training_center_id
+	left join regions as rgn on rgn_t.region_id = rgn.id
+	left join regions as rgn1 on rgn.parent_id = rgn1.id
+	left join brands as brn on rgn.brand_id = brn.id),
 ---salon_regions - связка салона с регионом коммерции и обучения
 salons_rgn as (
 select 
@@ -125,16 +142,15 @@ select
 	(case when row_number() over (partition by sme.id) = 1 then count(usr_sln.salon_id) over (partition by sme.id) end) as clients_count,
 	---place info
 	(case when sme.studio_id is not null then 
-		(case trc.center_type
+		(case trc_r.center_type
 			when 0 then 'studio'
 			when 1 then 'class' end)
 			else 'salon' end) as type_place,
 	(case when sme.studio_id is not null then  sme.studio_id else sme.salon_id end) as id_place,
-	(case when sme.studio_id is not null then  trc."name" || ' ' || trc.address
+	(case when sme.studio_id is not null then  trc_r."name" || ' ' || trc_r.address
 		else 'in_salon: ' || sln.salon_name  end) as name_place,
-	sln.com_mreg_name as place_mreg, 
-	sln.com_reg_name as place_reg, 
-	sln.com_ter_name as place_ter,
+	(case when sme.studio_id is not null then trc_r.edu_reg else sln.com_reg_name end) as place_reg,
+	(case when sme.studio_id is not null then trc_r.edu_mreg else sln.com_mreg_name end) as place_mreg, 
 	---educater info
 	sme.educator_id as educater_id,
 	edu.first_name || ' ' || edu.last_name as educator_name,
@@ -176,18 +192,13 @@ select
 	(case when sln_user.com_mreg_name is null and usr_sln.salon_id is not null then 'other_brand' else 
 		(case when sln_user.com_mreg_name is null and usr_sln.salon_id is null then 'not_salon' else 'brand_salon' end ) end) as salon_brand_status,
 	sln.salon_type,	
-	(case when sln.edu_mreg_name is not null then sln.edu_mreg_name else 
-		(case when rgn_trc.name is not null then rgn_trc.name  
-					end) 
-						end) as edu_mreg_name,
-	sln.edu_reg_name, 
 	'' as booking_user_name, '' as role, '' as prebooking_day, '' as status_booking
 from seminar_events as sme
 	left join seminars as smr on sme.seminar_id = smr.id
-	left join seminar_kpis_types as smrkt on smr.seminar_kpis_type_id = smrkt.id
-	left join training_centers as trc on sme.studio_id = trc.id
-	left join seminar_event_types as smret on sme.seminar_event_type_id = smret.id 
 	left join brands as brn on smr.brand_id = brn.id
+	left join seminar_kpis_types as smrkt on smr.seminar_kpis_type_id = smrkt.id
+	left join training_centers_regions as trc_r on sme.studio_id = trc_r.id and brn.code = trc_r.code
+	left join seminar_event_types as smret on sme.seminar_event_type_id = smret.id 
 	left join salons_rgn as sln on sme.salon_id = sln.salon_id and brn."name" = sln.brand
 	left join users as edu on sme.educator_id = edu.id
 	left join participations as prt on sme.id = prt.seminar_event_id
@@ -196,8 +207,6 @@ from seminar_events as sme
 	left join salons_rgn as sln_user on usr_sln.salon_id = sln_user.salon_id and brn."name" = sln_user.brand
 	left join participations_nobrand_salons as pns on usr_sln.salon_id = pns.salon_id 
 	left join discounts dsc on prt.discount_id = dsc.id 
-	left join regions_training_centers as rgn_t on trc.id = rgn_t.training_center_id
-	left join regions as rgn_trc on rgn_t.region_id = rgn_trc.id
 	left join internal_hrr as inte on sme.educator_id = inte.user_id
 	left join payments_usr as pmt_prt on prt.id = pmt_prt.item_id
 	left join seminar_specializations as smrsp on smr.seminar_specialization_id = smrsp.id
@@ -213,37 +222,5 @@ where
 	--and sln_user.com_mreg_name is null 
 	--and usr_sln.salon_id in (3023)
 order by sme.started_at, sme.id, prt.id
-LIMIT 1000
 
-internal_hrr as (
-select 
-distinct inte.brand_id, inte.region_id,  inte.region_level, inte.structure_type, 
-inte.user_id, inte.full_name,  inte.email, inte.mobile_number, inte.city, 
-(CASE WHEN inte.region_level = 6 then l1.user_id ELSE NULL END) as "n1_user_id", 
-(CASE WHEN inte.region_level = 6 THEN l1.full_name ELSE NULL END) as "n1_full_name",
-(CASE inte.region_level 
- 		WHEN 5 THEN l1.user_id
- 		WHEN 6 THEN l2.user_id END) as "n2_user_id", 
- 	(CASE inte.region_level 
- 		WHEN 5 THEN l1.full_name
- 		WHEN 6 THEN l2.full_name END) as "n2_full_name",
- 	(CASE inte.region_level 
- 		WHEN 4 THEN l1.user_id
- 		WHEN 5 THEN l2.user_id
- 		WHEN 6 THEN l3.user_id END) as "n3_user_id",
- 	(CASE inte.region_level
- 		WHEN 4 THEN l1.full_name
- 		WHEN 5 THEN l2.full_name
- 		WHEN 6 THEN l3.full_name END) as "n3_full_name",
- 	(CASE inte.structure_type 
- 		WHEN 1 THEN 'COM'
- 		WHEN 2 THEN 'EDU' end) AS team,
- 	brn.code
-from internal as inte
-left join region_hierarchies as rgh1 on rgh1.descendant_id = inte.region_id and rgh1.generations = 1
-left join internal as l1 on  rgh1.ancestor_id = l1.region_id
-left join region_hierarchies as rgh2 on rgh2.descendant_id = inte.region_id and rgh2.generations = 2
-left join internal as l2 on  rgh2.ancestor_id = l2.region_id
-left join region_hierarchies as rgh3 on rgh3.descendant_id = inte.region_id and rgh3.generations = 3
-left join internal as l3 on  rgh3.ancestor_id = l3.region_id
-left join brands AS brn ON inte.brand_id = brn.id ),
+
