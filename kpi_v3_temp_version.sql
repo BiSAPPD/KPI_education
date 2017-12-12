@@ -197,30 +197,31 @@ from seminar_events as sme
 	left join seminars as smr on sme.seminar_id = smr.id
 	left join brands as brn on smr.brand_id = brn.id
 	left join seminar_kpis_types as smrkt on smr.seminar_kpis_type_id = smrkt.id
+	left join seminar_event_types as smret on sme.seminar_event_type_id = smret.id
+	left join seminar_specializations as smrsp on smr.seminar_specialization_id = smrsp.id
 	left join training_centers_regions as trc_r on sme.studio_id = trc_r.id and brn.code = trc_r.code
-	left join seminar_event_types as smret on sme.seminar_event_type_id = smret.id 
 	left join salons_rgn as sln on sme.salon_id = sln.salon_id and brn."name" = sln.brand
 	left join users as edu on sme.educator_id = edu.id
 	left join participations as prt on sme.id = prt.seminar_event_id
 	left join users as prtnm on prt.user_id = prtnm.id
 	left join users_salons as usr_sln on prtnm.id = usr_sln.user_id
+	left join internal_hrr as inte on sme.educator_id = inte.user_id
 	left join salons_rgn as sln_user on usr_sln.salon_id = sln_user.salon_id and brn."name" = sln_user.brand
 	left join participations_nobrand_salons as pns on usr_sln.salon_id = pns.salon_id 
-	left join discounts dsc on prt.discount_id = dsc.id 
-	left join internal_hrr as inte on sme.educator_id = inte.user_id
+	left join discounts as dsc on prt.discount_id = dsc.id 
 	left join payments_usr as pmt_prt on prt.id = pmt_prt.item_id
-	left join seminar_specializations as smrsp on smr.seminar_specialization_id = smrsp.id
 where
 	-- sme.id = 293485
 	to_char(sme.started_at::timestamp at time zone 'UTC','YYYY') in ('2017', '2016') and  
 	--to_char(sme.started_at::timestamp at time zone 'UTC','MM') in ('07') and 
 	--and brn."name" is not null and 
-	 brn.code = 'MX' -- and 
+	 brn.code = 'KR' -- and 
   	--inte.n1_full_name is not null and
 	--inte.n3_full_name is not null and 
 	-- sme.studio_id is null
 	--and sln_user.com_mreg_name is null 
 	--and usr_sln.salon_id in (3023)
 order by sme.started_at, sme.id, prt.id
+limit 100
 
 
